@@ -36,6 +36,9 @@ object VehiclesData {
         first("Timestamp").as("Timestamp")
       )
 
+  private def writeToBigquery(data: DataFrame, datasetName: String, tableName: String): Unit =
+    data.write.format("bigquery").option("table", f"$datasetName.$tableName")
+      .option("temporaryGcsBucket", "vehicle_metrics_bucket").mode(SaveMode.Append).save()
 
   def processVehiclesData(stream: DStream[SparkPubsubMessage], windowInterval: Int, slidingInterval: Int,
                              spark: SparkSession, bigQueryDataset: String): Unit = {
@@ -46,13 +49,9 @@ object VehiclesData {
             .withColumn("Timestamp", lit(date_format(current_timestamp(), "dd.MM.yyyy_hh-mm")))
             .cache()
 
-          countVehiclesByYear(vehicleDF).write.format("bigquery").option("table", f"$bigQueryDataset.count")
-            .option("temporaryGcsBucket", "vehicle_metrics_bucket").mode(SaveMode.Append).save()
-          findTop3Year(vehicleDF).write.format("bigquery").option("table", f"$bigQueryDataset.popularity")
-            .option("temporaryGcsBucket", "vehicle_metrics_bucket").mode(SaveMode.Append).save()
-          countVehiclesByBaseType(vehicleDF).write.format("bigquery").option("table", f"$bigQueryDataset.type")
-            .option("temporaryGcsBucket", "vehicle_metrics_bucket").mode(SaveMode.Append).save()
-
+          writeToBigquery(countVehiclesByYear(vehicleDF), bigQueryDataset, "count")
+          writeToBigquery(findTop3Year(vehicleDF), bigQueryDataset, "popularity")
+          writeToBigquery(countVehiclesByBaseType(vehicleDF), bigQueryDataset, "type")
 
           vehicleDF.write.mode(SaveMode.Append).partitionBy("timestamp")
             .parquet("gs://vehicle_test_data/app_output")
