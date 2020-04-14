@@ -25,7 +25,7 @@ object VehiclesData {
         count("*").as("Count_Vehicle"),
         first("Timestamp").as("Timestamp")
       )
-      .limit(3)
+      .filter("Rank <= 3")
 
   private def countVehiclesByBaseType(input: DataFrame) =
     input
